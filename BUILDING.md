@@ -44,5 +44,8 @@ explicit is tracked as a later portability change.
 ## Current platform status
 
 - Windows/MSVC: built and tested in GitHub Actions.
-- macOS/Apple Clang: not yet supported by the original source. Portable file
-  I/O and path handling are the next migration step.
+- macOS/Apple Clang: built and tested in GitHub Actions for the standard solver.
+
+The original Explorer modes also refer to binary files under `Tables`. Those
+files are not present in this repository, so the compatibility file-opening
+layer is compiled but those modes cannot yet be exercised end to end.

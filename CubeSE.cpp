@@ -12,8 +12,30 @@
 #include <istreamwrapper.h>
 #include <unordered_set>
 #include <cmath>
+#include <cerrno>
+#include <cstdio>
 
 using namespace rapidjson;
+
+#if !defined(_WIN32)
+namespace {
+
+// fopen_s is provided by MSVC but is not part of standard C++. Keep the
+// existing call sites stable while translating their Windows path separators
+// for POSIX platforms.
+int fopen_s(FILE** stream, const char* filename, const char* mode) {
+	if (stream == nullptr || filename == nullptr || mode == nullptr) {
+		return EINVAL;
+	}
+
+	std::string portable_filename(filename);
+	std::replace(portable_filename.begin(), portable_filename.end(), '\\', '/');
+	*stream = std::fopen(portable_filename.c_str(), mode);
+	return *stream == nullptr ? errno : 0;
+}
+
+}  // namespace
+#endif
 
 struct State {
 	std::vector<int> cp;
