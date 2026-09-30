@@ -37,10 +37,21 @@ the input state is already solved.
 - A solved state is recognized as requiring zero moves.
 - The process emits a solution and exits successfully.
 
+## Automated fixed-scramble cases
+
+The Windows workflow also verifies these cases:
+
+- `U`
+- `R U R' U'`
+
+The test converts each scramble to the cubie representation accepted by the
+existing command-line interface. It then applies every solution emitted by the
+engine to that scrambled state and requires the result to equal the solved
+state. Exact solution text and timing are deliberately not fixed because more
+than one valid solution can exist and execution time varies between runners.
+
 ## Not verified
 
-- Solving a non-solved fixed scramble.
-- Validating that a generated algorithm solves its input state.
 - RL and FB search axes.
 - Beginner, PLL, OLL, F2L, and sub-step modes.
 - Windows GUI rendering and interaction.

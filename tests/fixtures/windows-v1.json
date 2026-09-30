@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "name": "single-u-turn",
+      "scramble": ["U"],
+      "min_depth": 1,
+      "max_depth": 4
+    },
+    {
+      "name": "four-move-trigger",
+      "scramble": ["R", "U", "R'", "U'"],
+      "min_depth": 1,
+      "max_depth": 8
+    }
+  ]
+}
