@@ -56,3 +56,28 @@ produce an error on standard error and a non-zero exit status.
 The original Explorer modes also refer to binary files under `Tables`. Those
 files are not present in this repository, so the compatibility file-opening
 layer is compiled but those modes cannot yet be exercised end to end.
+
+## Run the GUI during development
+
+Install Python 3, Tkinter, and Pillow, then point the GUI at the engine built
+above. Use a Python distribution linked against Tk 8.6 or newer on macOS. The
+deprecated Tk 8.5 bundled with Apple's Command Line Tools can create the window
+without rendering its contents.
+
+On macOS:
+
+```console
+CUBESE_ENGINE="$PWD/build/CubeSE" python3 CubeSE.pyw
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:CUBESE_ENGINE = "$PWD\build\Release\CubeSE.exe"
+python CubeSE.pyw
+```
+
+The Source build workflow also uploads each platform's compiled engine with its
+test output. A downloaded macOS executable may require `chmod +x CubeSE` before
+it can be launched. These CI artifacts are development builds, not signed or
+notarized releases.
