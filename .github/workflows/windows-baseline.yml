@@ -68,10 +68,18 @@ jobs:
             throw "CubeSE.exe did not produce a solution."
           }
 
+      - name: Validate fixed-scramble solutions
+        shell: pwsh
+        run: |
+          python tests/verify_windows_baseline.py `
+            --engine CubeSE.exe `
+            --cases tests/fixtures/windows-v1.json `
+            --output artifacts/windows-fixed-scrambles.txt
+
       - name: Upload execution result
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-baseline-result
-          path: artifacts/windows-baseline.txt
+          path: artifacts/
           retention-days: 14

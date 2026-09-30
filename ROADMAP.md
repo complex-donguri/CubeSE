@@ -9,7 +9,7 @@ one.
 - [x] Record the upstream Windows baseline.
 - [x] Document the branch and compatibility policy.
 - [ ] Capture representative Windows outputs and screenshots.
-- [ ] Add tests that validate generated solutions instead of requiring one
+- [x] Add tests that validate generated solutions instead of requiring one
   exact algorithm string.
 - [ ] Inventory the binary files expected under `Tables` and determine how
   they are generated or distributed.
