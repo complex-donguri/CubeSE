@@ -60,7 +60,11 @@ layer is compiled but those modes cannot yet be exercised end to end.
 ## Run the GUI during development
 
 Install Python 3, Tkinter, and Pillow, then point the GUI at the engine built
-above. On macOS:
+above. Use a Python distribution linked against Tk 8.6 or newer on macOS. The
+deprecated Tk 8.5 bundled with Apple's Command Line Tools can create the window
+without rendering its contents.
+
+On macOS:
 
 ```console
 CUBESE_ENGINE="$PWD/build/CubeSE" python3 CubeSE.pyw

@@ -45,6 +45,8 @@ macOS and passes the same solution-validity tests.
 - [x] Pass subprocess arguments as a list.
 - [x] Isolate Windows-only process options.
 - [x] Resolve images and data through `pathlib.Path`.
+- [ ] Verify the GUI with a supported macOS Python/Tk 8.6+ runtime. Apple's
+  Command Line Tools Python/Tk 8.5 opens a blank window.
 - [ ] Transfer worker output to Tkinter through a queue and `after()`.
 
 Exit condition: the standard solver can be launched and stopped from the GUI on
