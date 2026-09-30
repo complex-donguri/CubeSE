@@ -10,6 +10,7 @@ before cross-platform changes are introduced.
 - Workflow: `.github/workflows/windows-baseline.yml`
 - Runner: GitHub-hosted `windows-2022`
 - Workflow run: [Windows baseline run 36662322519](https://github.com/complex-donguri/CubeSE/actions/runs/36662322519)
+- Fixed-scramble run: [Windows baseline run 36663812627](https://github.com/complex-donguri/CubeSE/actions/runs/36663812627)
 
 ## Solved-state smoke test
 
@@ -43,6 +44,10 @@ The Windows workflow also verifies these cases:
 
 - `U`
 - `R U R' U'`
+
+Both cases passed on the `windows-2022` runner. The observed solutions included
+`U'` for the single turn and valid four-move and seven-move solutions for the
+four-move trigger.
 
 The test converts each scramble to the cubie representation accepted by the
 existing command-line interface. It then applies every solution emitted by the
