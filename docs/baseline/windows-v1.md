@@ -49,6 +49,9 @@ existing command-line interface. It then applies every solution emitted by the
 engine to that scrambled state and requires the result to equal the solved
 state. Exact solution text and timing are deliberately not fixed because more
 than one valid solution can exist and execution time varies between runners.
+The search starts at phase-one depth zero so states such as a single `U` turn,
+which already satisfy the phase-one coordinates, can proceed directly to
+phase two.
 
 ## Not verified
 
