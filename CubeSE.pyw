@@ -3,6 +3,7 @@ import threading as th
 import time as tm
 import tkinter as tk
 import heapq
+from cubese_runtime import image_path
 from PIL import Image, ImageTk
 from tkinter import Event, Place, StringVar, font, ttk
 from tkinter.constants import DISABLED, NORMAL, E, X
@@ -597,7 +598,7 @@ class Roots:
         Solver_for_Beginners_frame.grid(row=0, column=0, sticky="nsew")
     
     #picture
-        self.rotation_image = Image.open("RP\\" + show_rotation_path + ".png")
+        self.rotation_image = Image.open(image_path(show_rotation_path))
         self.resize_image = self.rotation_image.resize((round(WIDTH * 0.36923077), round(HEIGHT * 0.3375)))
         self.show_rotation_img = ImageTk.PhotoImage(self.resize_image)
         # self.show_rotation_img = tk.PhotoImage(file=(show_rotation_path+".png"))
@@ -914,7 +915,7 @@ class Roots:
         self.explor_PLL_Box.config(yscrollcommand=exploe_PLL_bar_y.set)
 
     #pic
-        self.PLL_image = Image.open("RP\\" + show_PLL_path + "perm.png")
+        self.PLL_image = Image.open(image_path(show_PLL_path + "perm"))
         self.resize_image_PLL = self.PLL_image.resize((round(WIDTH * 0.473077), round(HEIGHT * 0.76875)))
         self.show_PLL_img = ImageTk.PhotoImage(self.resize_image_PLL)
         self.show_img2 = tk.Label(PLL_Explorer_frame, image=self.show_PLL_img)
@@ -1960,8 +1961,8 @@ class B_Execution:
     def Show_Rotation_pic(self, index):
         move_name_list = ["U", "U2", "U'", "D", "D2", "D'", "R", "R2", "R'", "L", "L2", "L'", "F", "F2", "F'", "B", "B2", "B'", "Hide"]
         global show_rotation_path
-        show_rotation_path = ("RP\\" + move_name_list[index])
-        Rt.rotation_image = Image.open(show_rotation_path + ".png")
+        show_rotation_path = move_name_list[index]
+        Rt.rotation_image = Image.open(image_path(show_rotation_path))
         Rt.resize_image = Rt.rotation_image.resize((round(WIDTH * 0.36923077), round(HEIGHT * 0.3375)))
         Rt.show_rotation_img = ImageTk.PhotoImage(Rt.resize_image)
         Rt.show_img.config(image=Rt.show_rotation_img)
@@ -2749,7 +2750,7 @@ class PLL_Ex:
         Rt.selected_PLL.set("Selected PLL : " + Rt.Ex_commbobox_PLL.get())
         global show_PLL_path
         show_PLL_path = Rt.Ex_commbobox_PLL.get()
-        Rt.PLL_image = Image.open("RP\\" + show_PLL_path + "perm.png")
+        Rt.PLL_image = Image.open(image_path(show_PLL_path + "perm"))
         Rt.resize_image_PLL = Rt.PLL_image.resize((round(WIDTH * 0.473077), round(HEIGHT * 0.76875)))
         Rt.show_PLL_img = ImageTk.PhotoImage(Rt.resize_image_PLL)
         Rt.show_img2.config(image=Rt.show_PLL_img)
