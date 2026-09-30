@@ -22,14 +22,14 @@ changes.
 - [x] Add CMake without reorganizing the C++ implementation.
 - [x] Declare the C++ standard and RapidJSON dependency.
 - [x] Build the unchanged engine on Windows CI.
-- [ ] Add a macOS CI build and list the remaining compiler errors.
+- [x] Add a macOS CI build and list the remaining compiler errors.
 
 Exit condition: a documented command builds the engine on Windows, and macOS
 porting failures are visible in CI.
 
 ## Phase 2: Portable C++ engine
 
-- [ ] Replace `fopen_s` with portable file I/O.
+- [x] Isolate `fopen_s` behind portable file I/O compatibility.
 - [ ] Replace embedded path separators with `std::filesystem::path`.
 - [ ] Accept an explicit data directory.
 - [ ] Report missing or malformed data with useful errors and non-zero exit

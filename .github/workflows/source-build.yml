@@ -41,3 +41,34 @@ jobs:
           path: build/windows-fixed-scrambles.txt
           if-no-files-found: warn
           retention-days: 14
+
+  macos:
+    name: macOS source build
+    runs-on: macos-15
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Validate fixed-scramble solutions
+        run: |
+          python3 tests/verify_windows_baseline.py \
+            --engine build/CubeSE \
+            --cases tests/fixtures/windows-v1.json \
+            --output build/macos-fixed-scrambles.txt
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-source-build-result
+          path: build/macos-fixed-scrambles.txt
+          if-no-files-found: warn
+          retention-days: 14
