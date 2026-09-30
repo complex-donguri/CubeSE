@@ -1,0 +1,43 @@
+name: Source build
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows source build
+    runs-on: windows-2022
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Validate fixed-scramble solutions
+        shell: pwsh
+        run: |
+          python tests/verify_windows_baseline.py `
+            --engine build/Release/CubeSE.exe `
+            --cases tests/fixtures/windows-v1.json `
+            --output build/windows-fixed-scrambles.txt
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-source-build-result
+          path: build/windows-fixed-scrambles.txt
+          if-no-files-found: warn
+          retention-days: 14

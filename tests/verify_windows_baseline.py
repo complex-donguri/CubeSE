@@ -133,7 +133,9 @@ def verify_case(engine: Path, case: dict[str, object]) -> str:
             str(engine),
             *engine_arguments(scrambled_state, min_depth, max_depth),
         ],
-        cwd=engine.parent,
+        # The legacy engine resolves its JSON data from the working directory.
+        # Workflows invoke this script from the repository root.
+        cwd=Path.cwd(),
         capture_output=True,
         text=True,
         encoding="utf-8",

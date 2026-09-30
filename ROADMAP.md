@@ -19,9 +19,9 @@ changes.
 
 ## Phase 1: Reproducible engine builds
 
-- [ ] Add CMake without reorganizing the C++ implementation.
-- [ ] Declare the C++ standard and RapidJSON dependency.
-- [ ] Build the unchanged engine on Windows CI.
+- [x] Add CMake without reorganizing the C++ implementation.
+- [x] Declare the C++ standard and RapidJSON dependency.
+- [x] Build the unchanged engine on Windows CI.
 - [ ] Add a macOS CI build and list the remaining compiler errors.
 
 Exit condition: a documented command builds the engine on Windows, and macOS
