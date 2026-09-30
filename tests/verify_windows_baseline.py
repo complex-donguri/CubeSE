@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -121,7 +122,12 @@ def extract_solutions(output: str) -> list[list[str]]:
     return solutions
 
 
-def verify_case(engine: Path, case: dict[str, object]) -> str:
+def verify_case(
+    engine: Path,
+    case: dict[str, object],
+    working_directory: Path,
+    environment: dict[str, str],
+) -> str:
     name = str(case["name"])
     scramble = [str(move) for move in case["scramble"]]
     min_depth = int(case["min_depth"])
@@ -133,9 +139,8 @@ def verify_case(engine: Path, case: dict[str, object]) -> str:
             str(engine),
             *engine_arguments(scrambled_state, min_depth, max_depth),
         ],
-        # The legacy engine resolves its JSON data from the working directory.
-        # Workflows invoke this script from the repository root.
-        cwd=Path.cwd(),
+        cwd=working_directory,
+        env=environment,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -168,6 +173,29 @@ def verify_case(engine: Path, case: dict[str, object]) -> str:
     )
 
 
+def verify_missing_data_error(engine: Path, working_directory: Path) -> str:
+    missing_directory = working_directory / "missing-cubese-data"
+    environment = os.environ.copy()
+    environment["CUBESE_DATA_DIR"] = str(missing_directory)
+    result = subprocess.run(
+        [str(engine), *engine_arguments(SOLVED, 0, 0)],
+        cwd=working_directory,
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    if result.returncode == 0:
+        raise AssertionError("engine succeeded with a missing data directory")
+    if "Unable to open required CubeSE data file" not in output:
+        raise AssertionError(f"engine returned an unclear missing-data error:\n{output}")
+    return f"CASE: missing-data-directory\nRESULT: PASS\n{output.rstrip()}\n"
+
+
 def check_model() -> None:
     for face in QUARTER_TURNS:
         state = apply_algorithm(SOLVED, [face] * 4)
@@ -180,14 +208,25 @@ def main() -> None:
     parser.add_argument("--engine", required=True, type=Path)
     parser.add_argument("--cases", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--data-dir", type=Path)
+    parser.add_argument("--working-directory", type=Path, default=Path.cwd())
+    parser.add_argument("--check-missing-data-error", action="store_true")
     options = parser.parse_args()
 
     check_model()
     engine = options.engine.resolve()
     cases_file = options.cases.resolve()
     cases = json.loads(cases_file.read_text(encoding="utf-8"))["cases"]
+    working_directory = options.working_directory.resolve()
+    environment = os.environ.copy()
+    if options.data_dir is not None:
+        environment["CUBESE_DATA_DIR"] = str(options.data_dir.resolve())
 
-    reports = [verify_case(engine, case) for case in cases]
+    reports = [
+        verify_case(engine, case, working_directory, environment) for case in cases
+    ]
+    if options.check_missing_data_error:
+        reports.append(verify_missing_data_error(engine, working_directory))
     options.output.parent.mkdir(parents=True, exist_ok=True)
     options.output.write_text("\n".join(reports), encoding="utf-8")
     print("\n".join(reports))

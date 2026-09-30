@@ -29,7 +29,10 @@ jobs:
           python tests/verify_windows_baseline.py `
             --engine build/Release/CubeSE.exe `
             --cases tests/fixtures/windows-v1.json `
-            --output build/windows-fixed-scrambles.txt
+            --output build/windows-fixed-scrambles.txt `
+            --data-dir "${{ github.workspace }}" `
+            --working-directory build/Release `
+            --check-missing-data-error
 
       - name: Upload test output
         if: always()
@@ -60,7 +63,10 @@ jobs:
           python3 tests/verify_windows_baseline.py \
             --engine build/CubeSE \
             --cases tests/fixtures/windows-v1.json \
-            --output build/macos-fixed-scrambles.txt
+            --output build/macos-fixed-scrambles.txt \
+            --data-dir "$GITHUB_WORKSPACE" \
+            --working-directory build \
+            --check-missing-data-error
 
       - name: Upload test output
         if: always()

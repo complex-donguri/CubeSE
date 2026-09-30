@@ -30,8 +30,8 @@ porting failures are visible in CI.
 ## Phase 2: Portable C++ engine
 
 - [x] Isolate `fopen_s` behind portable file I/O compatibility.
-- [ ] Replace embedded path separators with `std::filesystem::path`.
-- [ ] Accept an explicit data directory.
+- [x] Resolve embedded path separators through `std::filesystem::path`.
+- [x] Accept an explicit data directory.
 - [ ] Report missing or malformed data with useful errors and non-zero exit
   codes.
 - [ ] Emit UTF-8 output.
