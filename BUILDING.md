@@ -38,8 +38,15 @@ python tests/verify_windows_baseline.py ^
 ```
 
 The engine currently loads its precomputed data relative to the process working
-directory, so run this command from the repository root. Making the data path
-explicit is tracked as a later portability change.
+directory by default. Set `CUBESE_DATA_DIR` to run it from another directory:
+
+```console
+CUBESE_DATA_DIR=/path/to/CubeSE ./build/CubeSE [arguments...]
+```
+
+The directory must contain the `pre_culculation*.json` files. Explorer modes
+also expect their binary files below its `Tables` subdirectory. Missing files
+produce an error on standard error and a non-zero exit status.
 
 ## Current platform status
 

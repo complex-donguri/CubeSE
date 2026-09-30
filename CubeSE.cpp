@@ -14,28 +14,62 @@
 #include <cmath>
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
+#include <filesystem>
 
 using namespace rapidjson;
 
-#if !defined(_WIN32)
 namespace {
 
-// fopen_s is provided by MSVC but is not part of standard C++. Keep the
-// existing call sites stable while translating their Windows path separators
-// for POSIX platforms.
-int fopen_s(FILE** stream, const char* filename, const char* mode) {
+std::filesystem::path data_directory = ".";
+
+std::filesystem::path data_path(const char* filename) {
+	std::string portable_filename(filename);
+	std::replace(portable_filename.begin(), portable_filename.end(), '\\', '/');
+	return data_directory / std::filesystem::path(portable_filename);
+}
+
+void configure_data_directory() {
+	if (const char* configured_directory = std::getenv("CUBESE_DATA_DIR")) {
+		if (*configured_directory != '\0') {
+			data_directory = configured_directory;
+		}
+	}
+}
+
+[[noreturn]] void report_missing_data(const std::filesystem::path& path) {
+	std::cerr << "Unable to open required CubeSE data file: " << path << std::endl;
+	std::exit(EXIT_FAILURE);
+}
+
+std::ifstream open_data_stream(const char* filename) {
+	auto path = data_path(filename);
+	std::ifstream stream(path);
+	if (!stream) {
+		report_missing_data(path);
+	}
+	return stream;
+}
+
+int open_data_file(FILE** stream, const char* filename, const char* mode) {
 	if (stream == nullptr || filename == nullptr || mode == nullptr) {
 		return EINVAL;
 	}
 
-	std::string portable_filename(filename);
-	std::replace(portable_filename.begin(), portable_filename.end(), '\\', '/');
-	*stream = std::fopen(portable_filename.c_str(), mode);
-	return *stream == nullptr ? errno : 0;
+	auto path = data_path(filename);
+#if defined(_WIN32)
+	int result = ::fopen_s(stream, path.string().c_str(), mode);
+#else
+	*stream = std::fopen(path.string().c_str(), mode);
+	int result = *stream == nullptr ? errno : 0;
+#endif
+	if (result != 0 || *stream == nullptr) {
+		report_missing_data(path);
+	}
+	return 0;
 }
 
 }  // namespace
-#endif
 
 struct State {
 	std::vector<int> cp;
@@ -4357,6 +4391,7 @@ struct Search_for_Beginners {
 };
 
 int main(int argc, char* argv[]) {
+	configure_data_directory();
 
 /*
 argc == 44 -> Search UD, Search RL, Search FB, Search for Beginners
@@ -4375,7 +4410,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 	};
 
 	if (argc == 44) {
-		std::ifstream ifs("pre_culculation.json");
+		auto ifs = open_data_stream("pre_culculation.json");
 		IStreamWrapper isw(ifs);
 		Document doc;
 		doc.ParseStream(isw);
@@ -4695,7 +4730,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 		solved_eep = solved_index2["eep"][pattern];
 		solved_sep = solved_index2["sep"][pattern];
 
-		std::ifstream ifs1("pre_culculation_E.json");
+		auto ifs1 = open_data_stream("pre_culculation_E.json");
 		IStreamWrapper isw1(ifs1);
 		Document doc1;
 		doc1.ParseStream(isw1);
@@ -4734,7 +4769,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 
 		if (pattern < 4) {
 
-			std::ifstream ifs2("pre_culculation_F2L.json");
+			auto ifs2 = open_data_stream("pre_culculation_F2L.json");
 			IStreamWrapper isw2(ifs2);
 			Document doc2;
 			doc2.ParseStream(isw2);
@@ -4774,7 +4809,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 
 		else if (4 <= pattern && pattern < 10) {
 
-			std::ifstream ifs2("pre_culculation_F2L.json");
+			auto ifs2 = open_data_stream("pre_culculation_F2L.json");
 			IStreamWrapper isw2(ifs2);
 			Document doc2;
 			doc2.ParseStream(isw2);
@@ -4814,7 +4849,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 
 		else if (10 <= pattern && pattern < 14) {
 
-			std::ifstream ifs2("pre_culculation_F2L.json");
+			auto ifs2 = open_data_stream("pre_culculation_F2L.json");
 			IStreamWrapper isw2(ifs2);
 			Document doc2;
 			doc2.ParseStream(isw2);
@@ -4854,7 +4889,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 
 		else if (pattern == 14) {
 			
-			std::ifstream ifs2("pre_culculation_F2L.json");
+			auto ifs2 = open_data_stream("pre_culculation_F2L.json");
 			IStreamWrapper isw2(ifs2);
 			Document doc2;
 			doc2.ParseStream(isw2);
@@ -4934,17 +4969,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					mep_sep_prune_table_E = new unsigned char[70567200];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\eo_mep-0-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\eo_mep-0-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(eo_mep_prune_table_E, 1, 12165120, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\eo_sep-0-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\eo_sep-0-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(eo_sep_prune_table_E, 1, 12165120, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\mep_sep-0-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\mep_sep-0-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(mep_sep_prune_table_E, 1, 70567200, file2);
 					fclose(file2);
 
@@ -4959,22 +4994,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 1496880, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 1496880, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 1496880, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\eo_eep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\eo_eep-0-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
@@ -4989,22 +5024,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 8981280, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 8981280, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 8981280, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\eo_eep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\eo_eep-0-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
@@ -5020,27 +5055,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\eo_eep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\eo_eep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, (std::string("Tables\\cp_eep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file4, (std::string("Tables\\cp_eep-0-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file4);
 					fclose(file4);
 
@@ -5068,12 +5103,12 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_sep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\eo_mep-1-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\eo_mep-1-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(eo_mep_prune_table_E, 1, 12165120, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\eo_sep-1-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\eo_sep-1-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(eo_sep_prune_table_E, 1, 12165120, file1);
 					fclose(file1);
 
@@ -5087,17 +5122,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_mep_prune_table_E = new unsigned char[1496880];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-1-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-1-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 1496880, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-1-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-1-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 1496880, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-1-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-1-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 1496880, file2);
 					fclose(file2);
 
@@ -5113,27 +5148,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[1995840];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 8981280, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 8981280, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 8981280, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\eo_eep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\eo_eep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, (std::string("Tables\\cp_eep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file4, (std::string("Tables\\cp_eep-1-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 1995840, file4);
 					fclose(file4);
 
@@ -5149,27 +5184,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\eo_eep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\eo_eep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, (std::string("Tables\\cp_eep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file4, (std::string("Tables\\cp_eep-1-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file4);
 					fclose(file4);
 
@@ -5252,12 +5287,12 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_sep_prune_table_E = new unsigned char[142560];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_mep-2-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_mep-2-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 142560, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-2-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-2-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 142560, file1);
 					fclose(file1);
 
@@ -5271,17 +5306,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_mep_prune_table_E = new unsigned char[1496880];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-2-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-2-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 1496880, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-2-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-2-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 1496880, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-2-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-2-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 1496880, file2);
 					fclose(file2);
 
@@ -5296,22 +5331,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[1995840];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 8981280, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 8981280, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 8981280, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\cp_eep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\cp_eep-2-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 1995840, file3);
 					fclose(file3);
 
@@ -5326,22 +5361,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\cp_eep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\cp_eep-2-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file3);
 					fclose(file3);
 
@@ -5369,12 +5404,12 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_sep_prune_table_E = new unsigned char[142560];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_mep-3-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_mep-3-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 142560, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-3-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-3-0-") + std::to_string(pattern) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 142560, file1);
 					fclose(file1);
 
@@ -5388,17 +5423,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_mep_prune_table_E = new unsigned char[1496880];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-3-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-3-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 1496880, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-3-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-3-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 1496880, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-3-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-3-1-") + std::to_string(pattern - 4) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 1496880, file2);
 					fclose(file2);
 
@@ -5413,22 +5448,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[1995840];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 8981280, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 8981280, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 8981280, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, (std::string("Tables\\cp_eep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file3, (std::string("Tables\\cp_eep-3-2-") + std::to_string(pattern - 10) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 1995840, file3);
 					fclose(file3);
 
@@ -5443,22 +5478,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, (std::string("Tables\\co_eep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file0, (std::string("Tables\\co_eep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, (std::string("Tables\\co_sep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file1, (std::string("Tables\\co_sep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, (std::string("Tables\\co_mep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file2, (std::string("Tables\\co_mep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file4;
-					fopen_s(&file4, (std::string("Tables\\cp_eep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
+					open_data_file(&file4, (std::string("Tables\\cp_eep-3-3-") + std::to_string(pattern - 14) + std::string(".bin")).c_str(), "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file4);
 					fclose(file4);
 
@@ -5484,7 +5519,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 		forbidden = std::stoi(argv[66]);
 		brackets = std::stoi(argv[67]);
 
-		std::ifstream ifs("pre_culculation_E.json");
+		auto ifs = open_data_stream("pre_culculation_E.json");
 		IStreamWrapper isw(ifs);
 		Document doc;
 		doc.ParseStream(isw);
@@ -5595,22 +5630,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_sep_prune_table_E = new unsigned char[239500800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp0.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_mep0.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_mep0.bin", "rb");
 					fread(cp_mep_prune_table_E, 1, 239500800, file4);
 					fclose(file4);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\cp_eep0.bin", "rb");
+					open_data_file(&file5, "Tables\\cp_eep0.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 239500800, file5);
 					fclose(file5);
 
 					FILE* file6;
-					fopen_s(&file6, "Tables\\cp_sep0.bin", "rb");
+					open_data_file(&file6, "Tables\\cp_sep0.bin", "rb");
 					fread(cp_sep_prune_table_E, 1, 239500800, file6);
 					fclose(file6);
 
@@ -5635,22 +5670,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_sep_prune_table_E = new unsigned char[239500800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp1.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp1.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_mep1.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_mep1.bin", "rb");
 					fread(cp_mep_prune_table_E, 1, 239500800, file4);
 					fclose(file4);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\cp_eep1.bin", "rb");
+					open_data_file(&file5, "Tables\\cp_eep1.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 239500800, file5);
 					fclose(file5);
 
 					FILE* file6;
-					fopen_s(&file6, "Tables\\cp_sep1.bin", "rb");
+					open_data_file(&file6, "Tables\\cp_sep1.bin", "rb");
 					fread(cp_sep_prune_table_E, 1, 239500800, file6);
 					fclose(file6);
 
@@ -5729,17 +5764,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eo_center_prune_table_E = new unsigned char[53747712];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp2.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp2.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\cp_mep2.bin", "rb");
+					open_data_file(&file1, "Tables\\cp_mep2.bin", "rb");
 					fread(cp_mep_prune_table_E, 1, 44089920, file1);
 					fclose(file1);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center2.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center2.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
@@ -5762,12 +5797,12 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eo_center_prune_table_E = new unsigned char[53747712];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp3.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp3.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center3.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center3.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
@@ -5845,22 +5880,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp0.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp0.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep0.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\OLL_co_eo0.bin", "rb");
+					open_data_file(&file2, "Tables\\OLL_co_eo0.bin", "rb");
 					fread(co_eo_prune_table_E, 1, 2239488, file2);
 					fclose(file2);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\OLL_eo_eep0.bin", "rb");
+					open_data_file(&file5, "Tables\\OLL_eo_eep0.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file5);
 					fclose(file5);
 
@@ -5940,22 +5975,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp1.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp1.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep1.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep1.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\OLL_co_eo1.bin", "rb");
+					open_data_file(&file2, "Tables\\OLL_co_eo1.bin", "rb");
 					fread(co_eo_prune_table_E, 1, 2239488, file2);
 					fclose(file2);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\OLL_eo_eep1.bin", "rb");
+					open_data_file(&file4, "Tables\\OLL_eo_eep1.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file4);
 					fclose(file4);
 
@@ -6093,27 +6128,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_center_prune_table_E = new unsigned char[239500800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp2.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp2.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep2.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep2.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 9979200, file1);
 					fclose(file1);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_eo_eep2.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_eo_eep2.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center2.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center2.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\OLL_cp_eep_center2.bin", "rb");
+					open_data_file(&file5, "Tables\\OLL_cp_eep_center2.bin", "rb");
 					fread(cp_eep_center_prune_table_E, 1, 239500800, file5);
 					fclose(file5);
 
@@ -6247,22 +6282,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eo_center_prune_table_E = new unsigned char[53747712];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp3.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp3.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep3.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep3.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file1);
 					fclose(file1);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_cp_eep3.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_cp_eep3.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center3.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center3.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
@@ -6401,7 +6436,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 		solved_eep = solved_index2["eep"][14];
 		solved_sep = solved_index2["sep"][14];
 
-		std::ifstream ifs1("pre_culculation_E.json");
+		auto ifs1 = open_data_stream("pre_culculation_E.json");
 		IStreamWrapper isw1(ifs1);
 		Document doc1;
 		doc1.ParseStream(isw1);
@@ -6514,22 +6549,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_sep_prune_table_E = new unsigned char[239500800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp0.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_mep0.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_mep0.bin", "rb");
 					fread(cp_mep_prune_table_E, 1, 239500800, file4);
 					fclose(file4);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\cp_eep0.bin", "rb");
+					open_data_file(&file5, "Tables\\cp_eep0.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 239500800, file5);
 					fclose(file5);
 
 					FILE* file6;
-					fopen_s(&file6, "Tables\\cp_sep0.bin", "rb");
+					open_data_file(&file6, "Tables\\cp_sep0.bin", "rb");
 					fread(cp_sep_prune_table_E, 1, 239500800, file6);
 					fclose(file6);
 
@@ -6609,22 +6644,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_sep_prune_table_E = new unsigned char[239500800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp1.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp1.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_mep1.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_mep1.bin", "rb");
 					fread(cp_mep_prune_table_E, 1, 239500800, file4);
 					fclose(file4);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\cp_eep1.bin", "rb");
+					open_data_file(&file5, "Tables\\cp_eep1.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 239500800, file5);
 					fclose(file5);
 
 					FILE* file6;
-					fopen_s(&file6, "Tables\\cp_sep1.bin", "rb");
+					open_data_file(&file6, "Tables\\cp_sep1.bin", "rb");
 					fread(cp_sep_prune_table_E, 1, 239500800, file6);
 					fclose(file6);
 
@@ -6760,17 +6795,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eo_center_prune_table_E = new unsigned char[53747712];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp2.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp2.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\cp_mep2.bin", "rb");
+					open_data_file(&file1, "Tables\\cp_mep2.bin", "rb");
 					fread(cp_mep_prune_table_E, 1, 44089920, file1);
 					fclose(file1);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center2.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center2.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
@@ -6902,12 +6937,12 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eo_center_prune_table_E = new unsigned char[53747712];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp3.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp3.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center3.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center3.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
@@ -7107,7 +7142,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_cp_prune_table_E = new unsigned char[44089920];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp0.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
@@ -7187,22 +7222,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eep_prune_table_E = new unsigned char[12990780];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp1.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp1.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\eo_cp1.bin", "rb");
+					open_data_file(&file1, "Tables\\eo_cp1.bin", "rb");
 					fread(eo_cp_prune_table_E, 1, 41287680, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\cp_eep1.bin", "rb");
+					open_data_file(&file2, "Tables\\cp_eep1.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 239500800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\co_eep1.bin", "rb");
+					open_data_file(&file3, "Tables\\co_eep1.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file3);
 					fclose(file3);
 
@@ -7338,17 +7373,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eep_prune_table_E = new unsigned char[12990780];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp2.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp2.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\co_eo_center2.bin", "rb");
+					open_data_file(&file2, "Tables\\co_eo_center2.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_co_eep2.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_co_eep2.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file3);
 					fclose(file3);
 
@@ -7482,22 +7517,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eep_prune_table_E = new unsigned char[12990780];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_cp3.bin", "rb");
+					open_data_file(&file0, "Tables\\co_cp3.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 44089920, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\cp_eep3.bin", "rb");
+					open_data_file(&file1, "Tables\\cp_eep3.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 44089920, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\co_eo_center3.bin", "rb");
+					open_data_file(&file2, "Tables\\co_eo_center3.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_co_eep3.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_co_eep3.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file3);
 					fclose(file3);
 
@@ -7625,7 +7660,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 		}
 
 		else if (pattern == 2) {
-			std::ifstream ifs2("pre_culculation_F2L.json");
+			auto ifs2 = open_data_stream("pre_culculation_F2L.json");
 			IStreamWrapper isw2(ifs2);
 			Document doc2;
 			doc2.ParseStream(isw2);
@@ -7703,17 +7738,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\ZBLS_co_eo0.bin", "rb");
+					open_data_file(&file0, "Tables\\ZBLS_co_eo0.bin", "rb");
 					fread(co_eo_prune_table_E, 1, 5806080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\co_eep-0-3-0.bin", "rb");
+					open_data_file(&file1, "Tables\\co_eep-0-3-0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_eo_eep0.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_eo_eep0.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
@@ -7737,17 +7772,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eep_prune_table_E = new unsigned char[33679800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\ZBLS_co_eo1.bin", "rb");
+					open_data_file(&file0, "Tables\\ZBLS_co_eo1.bin", "rb");
 					fread(co_eo_prune_table_E, 1, 5806080, file0);
 					fclose(file0);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\OLL_eo_eep1.bin", "rb");
+					open_data_file(&file2, "Tables\\OLL_eo_eep1.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\co_eep-1-3-0.bin", "rb");
+					open_data_file(&file3, "Tables\\co_eep-1-3-0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file3);
 					fclose(file3);
 
@@ -7828,17 +7863,17 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_center_prune_table_E = new unsigned char[239500800];
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_eo_eep2.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_eo_eep2.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\ZBLS_co_eo_center2.bin", "rb");
+					open_data_file(&file2, "Tables\\ZBLS_co_eo_center2.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 139345920, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_cp_eep_center2.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_cp_eep_center2.bin", "rb");
 					fread(cp_eep_center_prune_table_E, 1, 239500800, file3);
 					fclose(file3);
 
@@ -7861,12 +7896,12 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_center_prune_table_E = new unsigned char[239500800];
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\ZBLS_co_eo_center3.bin", "rb");
+					open_data_file(&file2, "Tables\\ZBLS_co_eo_center3.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 139345920, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_cp_eep_center3.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_cp_eep_center3.bin", "rb");
 					fread(cp_eep_center_prune_table_E, 1, 239500800, file3);
 					fclose(file3);
 
@@ -7959,22 +7994,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp0.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp0.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep0.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\OLL_co_eo0.bin", "rb");
+					open_data_file(&file2, "Tables\\OLL_co_eo0.bin", "rb");
 					fread(co_eo_prune_table_E, 1, 2239488, file2);
 					fclose(file2);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\OLL_eo_eep0.bin", "rb");
+					open_data_file(&file5, "Tables\\OLL_eo_eep0.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file5);
 					fclose(file5);
 
@@ -8000,22 +8035,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					eo_eep_prune_table_E = new unsigned char[12165120];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp1.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp1.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep1.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep1.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\OLL_co_eo1.bin", "rb");
+					open_data_file(&file2, "Tables\\OLL_co_eo1.bin", "rb");
 					fread(co_eo_prune_table_E, 1, 2239488, file2);
 					fclose(file2);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\OLL_eo_eep1.bin", "rb");
+					open_data_file(&file4, "Tables\\OLL_eo_eep1.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file4);
 					fclose(file4);
 
@@ -8097,27 +8132,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_center_prune_table_E = new unsigned char[239500800];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp2.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp2.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep2.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep2.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 9979200, file1);
 					fclose(file1);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_eo_eep2.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_eo_eep2.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center2.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center2.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
 					FILE* file5;
-					fopen_s(&file5, "Tables\\OLL_cp_eep_center2.bin", "rb");
+					open_data_file(&file5, "Tables\\OLL_cp_eep_center2.bin", "rb");
 					fread(cp_eep_center_prune_table_E, 1, 239500800, file5);
 					fclose(file5);
 
@@ -8143,22 +8178,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					co_eo_center_prune_table_E = new unsigned char[53747712];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\OLL_co_cp3.bin", "rb");
+					open_data_file(&file0, "Tables\\OLL_co_cp3.bin", "rb");
 					fread(co_cp_prune_table_E, 1, 1837080, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\OLL_co_eep3.bin", "rb");
+					open_data_file(&file1, "Tables\\OLL_co_eep3.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 12990780, file1);
 					fclose(file1);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\OLL_cp_eep3.bin", "rb");
+					open_data_file(&file3, "Tables\\OLL_cp_eep3.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\co_eo_center3.bin", "rb");
+					open_data_file(&file4, "Tables\\co_eo_center3.bin", "rb");
 					fread(co_eo_center_prune_table_E, 1, 53747712, file4);
 					fclose(file4);
 
@@ -8185,7 +8220,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 			solved_eep = solved_index2["eep"][14];
 			solved_sep = solved_index2["sep"][14];
 
-			std::ifstream ifs2("pre_culculation_F2L.json");
+			auto ifs2 = open_data_stream("pre_culculation_F2L.json");
 			IStreamWrapper isw2(ifs2);
 			Document doc2;
 			doc2.ParseStream(isw2);
@@ -8263,27 +8298,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_eep-0-3-0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_eep-0-3-0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\co_sep-0-3-0.bin", "rb");
+					open_data_file(&file1, "Tables\\co_sep-0-3-0.bin", "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\co_mep-0-3-0.bin", "rb");
+					open_data_file(&file2, "Tables\\co_mep-0-3-0.bin", "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\eo_eep-0-3-0.bin", "rb");
+					open_data_file(&file3, "Tables\\eo_eep-0-3-0.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_eep-0-3-0.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_eep-0-3-0.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file4);
 					fclose(file4);
 
@@ -8310,27 +8345,27 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_eep-1-3-0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_eep-1-3-0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\co_sep-1-3-0.bin", "rb");
+					open_data_file(&file1, "Tables\\co_sep-1-3-0.bin", "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\co_mep-1-3-0.bin", "rb");
+					open_data_file(&file2, "Tables\\co_mep-1-3-0.bin", "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\eo_eep-1-3-0.bin", "rb");
+					open_data_file(&file3, "Tables\\eo_eep-1-3-0.bin", "rb");
 					fread(eo_eep_prune_table_E, 1, 12165120, file3);
 					fclose(file3);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_eep-1-3-0.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_eep-1-3-0.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file4);
 					fclose(file4);
 
@@ -8411,22 +8446,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_eep-2-3-0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_eep-2-3-0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\co_sep-2-3-0.bin", "rb");
+					open_data_file(&file1, "Tables\\co_sep-2-3-0.bin", "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\co_mep-2-3-0.bin", "rb");
+					open_data_file(&file2, "Tables\\co_mep-2-3-0.bin", "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file3;
-					fopen_s(&file3, "Tables\\cp_eep-2-3-0.bin", "rb");
+					open_data_file(&file3, "Tables\\cp_eep-2-3-0.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file3);
 					fclose(file3);
 
@@ -8452,22 +8487,22 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 					cp_eep_prune_table_E = new unsigned char[9979200];
 
 					FILE* file0;
-					fopen_s(&file0, "Tables\\co_eep-3-3-0.bin", "rb");
+					open_data_file(&file0, "Tables\\co_eep-3-3-0.bin", "rb");
 					fread(co_eep_prune_table_E, 1, 33679800, file0);
 					fclose(file0);
 
 					FILE* file1;
-					fopen_s(&file1, "Tables\\co_sep-3-3-0.bin", "rb");
+					open_data_file(&file1, "Tables\\co_sep-3-3-0.bin", "rb");
 					fread(co_sep_prune_table_E, 1, 33679800, file1);
 					fclose(file1);
 
 					FILE* file2;
-					fopen_s(&file2, "Tables\\co_mep-3-3-0.bin", "rb");
+					open_data_file(&file2, "Tables\\co_mep-3-3-0.bin", "rb");
 					fread(co_mep_prune_table_E, 1, 33679800, file2);
 					fclose(file2);
 
 					FILE* file4;
-					fopen_s(&file4, "Tables\\cp_eep-3-3-0.bin", "rb");
+					open_data_file(&file4, "Tables\\cp_eep-3-3-0.bin", "rb");
 					fread(cp_eep_prune_table_E, 1, 9979200, file4);
 					fclose(file4);
 
@@ -8489,7 +8524,7 @@ argc == 70 -> sub step Explorer / pattern == 0 -> OLL+PLL, pattern == 1 -> OLL+C
 	}
 
 	else {
-		std::ifstream ifs("pre_culculation.json");
+		auto ifs = open_data_stream("pre_culculation.json");
 		IStreamWrapper isw(ifs);
 		Document doc;
 		doc.ParseStream(isw);
