@@ -41,10 +41,10 @@ macOS and passes the same solution-validity tests.
 
 ## Phase 3: Portable Python launcher
 
-- [ ] Centralize executable discovery and subprocess management.
-- [ ] Pass subprocess arguments as a list.
-- [ ] Isolate Windows-only process options.
-- [ ] Resolve images and data through `pathlib.Path`.
+- [x] Centralize executable discovery and subprocess management.
+- [x] Pass subprocess arguments as a list.
+- [x] Isolate Windows-only process options.
+- [x] Resolve images and data through `pathlib.Path`.
 - [ ] Transfer worker output to Tkinter through a queue and `after()`.
 
 Exit condition: the standard solver can be launched and stopped from the GUI on

@@ -1,8 +1,8 @@
-import subprocess
 import threading as th
 import time as tm
 import tkinter as tk
 import heapq
+from cubese_process import iter_engine_output, start_engine
 from cubese_runtime import image_path
 from PIL import Image, ImageTk
 from tkinter import Event, Place, StringVar, font, ttk
@@ -1818,18 +1818,15 @@ class Execution:
                     
                     #print(cmd)
 
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    startupinfo.wShowWindow = subprocess.SW_HIDE
 
                     Rt.Solution_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
                     #a = time.perf_counter()
                     
                     ID = root.after(int((exe.Solution3 + 1.457) * 1000), Rt.Exit_thread)
-                    self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-                    for line in iter(exe.search.stdout.readline, b''):
+                    self.search = start_engine(cmd)
+                    for line in iter_engine_output(self.search):
                         #print(time.perf_counter() - a)
-                        Rt.Solution_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+                        Rt.Solution_Box.insert("end", line + "\n")
                         Rt.Solution_Box.see("end")
 
                     """self.solution = search.start_search(min_length = int(Solution1), \
@@ -1855,18 +1852,15 @@ class Execution:
                     
                     #print(cmd)
                     
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    startupinfo.wShowWindow = subprocess.SW_HIDE
 
                     Rt.Solution_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
                     #a = time.perf_counter()
 
                     ID = root.after(int((exe.Solution3 + 1.457) * 1000), Rt.Exit_thread)
-                    self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-                    for line in iter(exe.search.stdout.readline, b''):
+                    self.search = start_engine(cmd)
+                    for line in iter_engine_output(self.search):
                         #print(time.perf_counter() - a)
-                        Rt.Solution_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+                        Rt.Solution_Box.insert("end", line + "\n")
                         Rt.Solution_Box.see("end")
 
                     """self.solution = search.start_search(min_length = int(Solution1), \
@@ -1892,18 +1886,15 @@ class Execution:
 
                     #print(cmd)
 
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    startupinfo.wShowWindow = subprocess.SW_HIDE
 
                     Rt.Solution_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
                     #a = time.perf_counter()
 
                     ID = root.after(int((exe.Solution3 + 1.457) * 1000), Rt.Exit_thread)
-                    self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-                    for line in iter(exe.search.stdout.readline, b''):
+                    self.search = start_engine(cmd)
+                    for line in iter_engine_output(self.search):
                         #print(time.perf_counter() - a)
-                        Rt.Solution_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+                        Rt.Solution_Box.insert("end", line + "\n")
                         Rt.Solution_Box.see("end")
 
                     """self.solution = search.start_search(min_length = int(Solution1), \
@@ -1929,18 +1920,15 @@ class Execution:
 
                     #print(cmd)
 
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    startupinfo.wShowWindow = subprocess.SW_HIDE
 
                     Rt.Solution_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
                     #a = time.perf_counter()
 
                     ID = root.after(int((exe.Solution3 + 1.457) * 1000), Rt.Exit_thread)
-                    self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-                    for line in iter(exe.search.stdout.readline, b''):
+                    self.search = start_engine(cmd)
+                    for line in iter_engine_output(self.search):
                         #print(time.perf_counter() - a)
-                        Rt.Solution_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+                        Rt.Solution_Box.insert("end", line + "\n")
                         Rt.Solution_Box.see("end")
 
                     """self.solution = search.start_search(min_length = int(Solution1), \
@@ -2253,10 +2241,10 @@ class B_Execution:
         #print(arg_CP + " " +  arg_CO + " " + arg_EP + " " + arg_EO)
         #h = tm.perf_counter()
         #print(cmd)
-        self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-        for line in iter(bexe.search.stdout.readline, b''):
+        self.search = start_engine(cmd)
+        for line in iter_engine_output(self.search):
             #print(time.perf_counter() - a)
-            self.lbltext.set(line.rstrip().decode('sjis'))
+            self.lbltext.set(line)
         Rt.B_Start_Button["state"] = NORMAL
         #print(h-g, g-f, f-e, e-d, d-c, c-b, b-a)
 
@@ -2852,19 +2840,16 @@ class PLL_Ex:
 
         # print(cmd)
 
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
 
         Rt.explor_PLL_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
         #a = time.perf_counter()
 
         #ID = root.after(int((Solution3 + 1.457) * 1000), Rt.Explorer_Exit_thread)
 
-        self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-        for line in iter(pllex.search.stdout.readline, b''):
+        self.search = start_engine(cmd)
+        for line in iter_engine_output(self.search):
             #print(time.perf_counter() - a)
-            Rt.explor_PLL_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+            Rt.explor_PLL_Box.insert("end", line + "\n")
             Rt.explor_PLL_Box.see("end")
 
         """self.solution = search.start_search(min_length = int(Solution1), \
@@ -3240,19 +3225,16 @@ class OLL_Ex:
 
         # print(cmd)
 
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
 
         Rt.explor_OLL_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
         #a = time.perf_counter()
 
         #ID = root.after(int((Solution3 + 1.457) * 1000), Rt.Explorer_Exit_thread)
 
-        self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-        for line in iter(ollex.search.stdout.readline, b''):
+        self.search = start_engine(cmd)
+        for line in iter_engine_output(self.search):
             #print(time.perf_counter() - a)
-            Rt.explor_OLL_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+            Rt.explor_OLL_Box.insert("end", line + "\n")
             Rt.explor_OLL_Box.see("end")
 
         """self.solution = search.start_search(min_length = int(Solution1), \
@@ -3772,16 +3754,13 @@ class F2L_Ex:
 
         # print(cmd)
 
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
 
         Rt.explor_F2L_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
 
-        self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-        for line in iter(f2lex.search.stdout.readline, b''):
+        self.search = start_engine(cmd)
+        for line in iter_engine_output(self.search):
             #print(time.perf_counter() - a)
-            Rt.explor_F2L_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+            Rt.explor_F2L_Box.insert("end", line + "\n")
             Rt.explor_F2L_Box.see("end")
 
         """self.solution = search.start_search(min_length = int(Solution1), \
@@ -5207,19 +5186,16 @@ class sub_step_Ex:
 
         print(cmd)
 
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        startupinfo.wShowWindow = subprocess.SW_HIDE
 
         Rt.explor_sub_step_Box.insert("end", "・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・\n")
         #a = time.perf_counter()
 
         #ID = root.after(int((Solution3 + 1.457) * 1000), Rt.Explorer_Exit_thread)
 
-        self.search = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=False, startupinfo=startupinfo)
-        for line in iter(sub_stepex.search.stdout.readline, b''):
+        self.search = start_engine(cmd)
+        for line in iter_engine_output(self.search):
             #print(time.perf_counter() - a)
-            Rt.explor_sub_step_Box.insert("end", line.rstrip().decode('sjis') + "\n")
+            Rt.explor_sub_step_Box.insert("end", line + "\n")
             Rt.explor_sub_step_Box.see("end")
 
         """self.solution = search.start_search(min_length = int(Solution1), \
