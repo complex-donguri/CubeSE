@@ -1,0 +1,77 @@
+name: Windows baseline
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Existing Windows executable
+    runs-on: windows-2022
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check required files
+        shell: pwsh
+        run: |
+          $requiredFiles = @(
+            "CubeSE.exe",
+            "pre_culculation.json",
+            "pre_culculation_E.json",
+            "pre_culculation_F2L.json"
+          )
+
+          foreach ($file in $requiredFiles) {
+            if (-not (Test-Path $file)) {
+              throw "Required file is missing: $file"
+            }
+          }
+
+      - name: Run solved-state smoke test
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+
+          $engineArguments = @(
+            "0", "1", "2", "3", "4", "5", "6", "7",
+            "0", "0", "0", "0", "0", "0", "0", "0",
+            "0", "1", "2", "3", "4", "5",
+            "6", "7", "8", "9", "10", "11",
+            "0", "0", "0", "0", "0", "0",
+            "0", "0", "0", "0", "0", "0",
+            "0", "0", "1"
+          )
+
+          & .\CubeSE.exe @engineArguments 2>&1 |
+            Tee-Object -FilePath artifacts/windows-baseline.txt
+
+          $engineExitCode = $LASTEXITCODE
+
+          if ($engineExitCode -ne 0) {
+            throw "CubeSE.exe exited with code $engineExitCode"
+          }
+
+          if (-not (
+            Select-String `
+              -Path artifacts/windows-baseline.txt `
+              -Pattern "Solution:" `
+              -Quiet
+          )) {
+            throw "CubeSE.exe did not produce a solution."
+          }
+
+      - name: Upload execution result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-baseline-result
+          path: artifacts/windows-baseline.txt
+          retention-days: 14
