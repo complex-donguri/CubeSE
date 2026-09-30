@@ -42,7 +42,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: windows-source-build-result
-          path: build/windows-fixed-scrambles.txt
+          path: |
+            build/Release/CubeSE.exe
+            build/windows-fixed-scrambles.txt
           if-no-files-found: warn
           retention-days: 14
 
@@ -79,6 +81,8 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: macos-source-build-result
-          path: build/macos-fixed-scrambles.txt
+          path: |
+            build/CubeSE
+            build/macos-fixed-scrambles.txt
           if-no-files-found: warn
           retention-days: 14
